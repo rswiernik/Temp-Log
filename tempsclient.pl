@@ -41,12 +41,10 @@ foreach( my $i=0; $i<@info; $i++ ){
 		# once weve found the ISA adapter, grab the next line,
 		# as that is where the adapter temperature is
 		# $temp_line = $info[$i+1]; chomp($temp_line);
-		my $line = $info[$i]; chomp($line);
 		while($line !~ m/^\n$/){
-			$i = $i + 1;
-			my $line = $info[$i]; chomp($line);
+			$line = $info[$i]; chomp($line);
 			push(@data, $line);
-			
+			$i = $i + 1;
 		}
 		# Quit out of checking
 		if($DEBUG){print @data;}
