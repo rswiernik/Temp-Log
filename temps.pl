@@ -6,32 +6,42 @@ use List::Util qw(sum);
 use Getopt::Long;
 
 use Socket;
+use IO::Socket::INET;
 
 # Define variables for the runtime of the program
+
+# Define the runtime version of this program
+# (used in check_version sub)
 my $VERSION = "1.0";
+# $PORT is the port number that will be used for both server and client.
+my $PORT = 55693;
+
 my $DEBUG;
 my $VER_CHK;
 my $MASTER_NODE = "localhost";
 my $SERVER;
+my $HELP;
 
 # Check program arguments
-GetOptions ('debug' => \$DEBUG,
-			'version' => \$VER_CHK,
-			'master=i' => \$MASTER_NODE,
-			'server' => \$SERVER);
+GetOptions ('verbose' => \$DEBUG,
+			'debug' => \$VER_CHK,
+			'master=s' => \$MASTER_NODE,
+			'server' => \$SERVER,
+			'help' => \$HELP);
 
 if( $VER_CHK ){
 
-	print "Temps.pl version: $VERSION\n",
-		"Author: Reed Swiernik\n\n",
-		"This project works to report temperature data to a master node\n",
-		"enabling use in restful API's and other data collection uses.\n";
-	exit 0;
+	&check_version($VERSION);
+
+} elsif( $HELP ){
+
+	&display_help();
 
 }
 
-my $PORT = 55693;
-my $PROTOCOL = getprotobyname('tcp');
+
+# Well, we got past all the arguments, so lets start defining some stuff.
+
 
 if(!$SERVER){
 	my $hostname = `hostname`; chomp($hostname);
@@ -91,7 +101,7 @@ if(!$SERVER){
 			# Set the matched portion that is the temp equal to the temps array
 			
 			if($DEBUG){print "Temp: $1\n";}
-			if($DEBUG){print "$hostname,$1\n\n";}
+			if($DEBUG){print "$MASTER_NODE,$hostname,$1\n\n";}
 		} else {
 			if($DEBUG){print "No core temp found\n";}
 		}
@@ -100,14 +110,119 @@ if(!$SERVER){
 	my $avg = 0;
 	$avg = sum(@temps)/@temps;
 	if($DEBUG){print "Average temp: $avg\n";}
+	
+	my $data = "$hostname,$avg";
 
+	# Start networked client portion
+	# $MASTER_NODE is the argument variable used for the masternode to report
+	# to if being run as the client.
+	
+	my ($socket, $client_socket);
+
+	# Create the socket object
+	$socket = new IO::Socket::INET (
+	PeerHost => '127.0.0.1',
+	PeerPort => $PORT,
+	Proto => 'tcp',
+	) or die "ERROR in Socket Creation : $!\n";
+
+	if($DEBUG){ print "Awaiting client connections on pert $PORT\n"; }
+
+	my ($peer_address, $peer_port, $client_data, @data_array );
+	
+	$client_socket = $socket->accept();
+
+	$peer_address = $client_socket->peerhost();
+	$peer_port = $client_socket->peerport();
+
+	if($DEBUG){ print "Accepted new client: $peer_address, $peer_port"; }
+	
+	if($DEBUG){ print "Sending data: $data\n"; }
+	
+	print $client_socket "$data\n";
+	@data_array = split(',', $client_data);
+	
+	if($DEBUG){ print "Data sent..."; }
+
+	# End networked client portion
+
+	exit 0;
 } #end if for in client (!$SERVER)
+
+
  
 if( $SERVER ){
 
+	my ($socket, $client_socket);
+
+	# Create the socket object
+	$socket = new IO::Socket::INET (
+	LocalHost => '127.0.0.1',
+	LocalPort => $PORT,
+	Proto => 'tcp',
+	Listen => 5,
+	Reuse => 1
+	) or die "ERROR in Socket Creation : $!\n";
+
+	if($DEBUG){ print "Awaiting client connections on pert $PORT\n"; }
+
+	my ($peer_address, $peer_port, $client_data, @data_array );
+	while(1){
+		$client_socket = $socket->accept();
+
+		$peer_address = $client_socket->peerhost();
+		$peer_port = $client_socket->peerport();
+
+		if($DEBUG){ print "Accepted new client: $peer_address, $peer_port"; }
+		
+		# print $client_socket "$data\n";
+		$client_data = <$client_socket>;
+		@data_array = split(',', $client_data);
+
+		if($DEBUG){
+			print "Data recieved:\n";
+			foreach (@data_array) {
+				print "\t$_\n";
+			}
+		}
+	}
 	
-	
+	exit 0;
 
 } #end if for server ($SERVER)
 
-exit 0;
+exit 1;
+
+# Subroutine for checking the version of the program
+sub check_version {
+	my $version = shift;
+	print "Temps.pl\t(Version: $version)\n",
+		"Author: Reed Swiernik\n\n",
+		"Temp-Log\n",
+		"===\n",
+		"Temperature monitoring in perl using lm-sensors. This perl script scraps the output of the 'sensors' portion of lm-sensors. In the designed use-case, the server portion of Temps is run on the master node and each client whoes temperature is being monitored is then reported to the master. \n",
+		"This project works to report temperature data to a master node\n",
+		"enabling use in restful API's and other data collection uses.\n";
+	exit 0;
+}
+
+# Subroutine for displaying the help page
+sub display_help {
+
+	my $help_output = <<'HELP';
+Uasge as Client:
+When run as the client, the script gathers core temperature data, means them, and sends the data to a master node. By default, when run as the client the program will send info to localhost. 
+~$ ./temps.pl -m <master node>
+	[-v | --version]
+	[-d | --debug]
+					
+Uasge as Server:
+When run as the master node, the program should be run in the background awaiting outer node information.
+~$ ./temps.pl -s &
+	[-v | --version]
+	[-d | --debug]
+HELP
+
+	print "$help_output\n";
+	exit 0;
+}
