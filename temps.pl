@@ -31,19 +31,72 @@ GetOptions ('verbose' => \$DEBUG,
 
 if( $VER_CHK ){
 
-	&check_version($VERSION);
+	&check_version( $VERSION );
 
 } elsif( $HELP ){
 
 	&display_help();
 
+} elsif( $SERVER ){
+	
+	&server( $PORT );
+
+} elsif( !$SERVER and ($MASTER_NODE =~ m/([0-9]{1,3}\.?){4}/ or $MASTER_NODE =~ m/localhost/ ) ){
+	
+	&client( $PORT,$MASTER_NODE );
+
 }
 
+if($DEBUG){ print "No option selected... Master Node: <$MASTER_NODE>\n\n"; &display_help(); }
 
-# Well, we got past all the arguments, so lets start defining some stuff.
+exit 1;
 
 
-if(!$SERVER){
+# Sub for the server
+sub server {
+	my $PORT = shift;
+
+	my ($socket, $client_socket);
+
+	# Create the socket object
+	$socket = new IO::Socket::INET (
+	LocalHost => '127.0.0.1',
+	LocalPort => $PORT,
+	Proto => 'tcp',
+	Listen => 5,
+	Reuse => 1
+	) or die "ERROR in Socket Creation : $!\n";
+
+	if($DEBUG){ print "Awaiting client connections on pert $PORT\n"; }
+
+	my ($peer_address, $peer_port, $client_data, @data_array );
+	while(1){
+		$client_socket = $socket->accept();
+
+		$peer_address = $client_socket->peerhost();
+		$peer_port = $client_socket->peerport();
+
+		if($DEBUG){ print "Accepted new client: $peer_address, $peer_port\n"; }
+		
+		# print $client_socket "$data\n";
+		$client_data = <$client_socket>;
+		@data_array = split(',', $client_data);
+
+		if($DEBUG){
+			print "\tData recieved:\n";
+			foreach (@data_array) {
+				print "\t\t$_\n";
+			}
+		}
+	}
+	
+	exit 0;
+
+} #end of server sub
+
+sub client {
+	my ($PORT, $MASTERNODE) = @_;
+
 	my $hostname = `hostname`; chomp($hostname);
 	my @info = `sensors`;
 	my @data;
@@ -69,12 +122,12 @@ if(!$SERVER){
 			}
 
 			# Quit out of checking
-			if($DEBUG){
-				print "Final arranged data:\n";
-				foreach (@data) {
-					print "$_\n";
-				}
-			}
+			#if($DEBUG){
+			#	print "Final arranged data:\n";
+			#	foreach (@data) {
+			#		print "$_\n";
+			#	}
+			#}
 			last;
 		}
 	}
@@ -130,68 +183,17 @@ if(!$SERVER){
 
 	my ($peer_address, $peer_port, $client_data, @data_array );
 	
-	$client_socket = $socket->accept();
-
-	$peer_address = $client_socket->peerhost();
-	$peer_port = $client_socket->peerport();
-
-	if($DEBUG){ print "Accepted new client: $peer_address, $peer_port"; }
-	
 	if($DEBUG){ print "Sending data: $data\n"; }
 	
-	print $client_socket "$data\n";
-	@data_array = split(',', $client_data);
+	print $socket "$data";
 	
-	if($DEBUG){ print "Data sent..."; }
+	if($DEBUG){ print "Data sent...\n"; }
 
 	# End networked client portion
+	$socket->close();
 
 	exit 0;
 } #end if for in client (!$SERVER)
-
-
- 
-if( $SERVER ){
-
-	my ($socket, $client_socket);
-
-	# Create the socket object
-	$socket = new IO::Socket::INET (
-	LocalHost => '127.0.0.1',
-	LocalPort => $PORT,
-	Proto => 'tcp',
-	Listen => 5,
-	Reuse => 1
-	) or die "ERROR in Socket Creation : $!\n";
-
-	if($DEBUG){ print "Awaiting client connections on pert $PORT\n"; }
-
-	my ($peer_address, $peer_port, $client_data, @data_array );
-	while(1){
-		$client_socket = $socket->accept();
-
-		$peer_address = $client_socket->peerhost();
-		$peer_port = $client_socket->peerport();
-
-		if($DEBUG){ print "Accepted new client: $peer_address, $peer_port"; }
-		
-		# print $client_socket "$data\n";
-		$client_data = <$client_socket>;
-		@data_array = split(',', $client_data);
-
-		if($DEBUG){
-			print "Data recieved:\n";
-			foreach (@data_array) {
-				print "\t$_\n";
-			}
-		}
-	}
-	
-	exit 0;
-
-} #end if for server ($SERVER)
-
-exit 1;
 
 # Subroutine for checking the version of the program
 sub check_version {
