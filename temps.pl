@@ -132,6 +132,11 @@ sub client {
 		}
 	}
 
+	if( !@data ){
+		if( $DEBUG ){ print "No sensors output, exiting program"; }
+		exit 1;
+	}
+
 	my @temps;
 	foreach my $entry (@data) {
 		if($DEBUG){print "Parsing Line: $entry\n";}
