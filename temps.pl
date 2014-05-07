@@ -4,11 +4,7 @@ use strict;
 use warnings;
 use List::Util qw(sum);
 use Getopt::Long;
-
-use Socket;
 use IO::Socket::INET;
-
-# Define variables for the runtime of the program
 
 # Define the runtime version of this program
 # (used in check_version sub)
@@ -23,8 +19,8 @@ my $SERVER;
 my $HELP;
 
 # Check program arguments
-GetOptions ('verbose' => \$DEBUG,
-			'debug' => \$VER_CHK,
+GetOptions ('debug' => \$DEBUG,
+			'version' => \$VER_CHK,
 			'master=s' => \$MASTER_NODE,
 			'server' => \$SERVER,
 			'help' => \$HELP);
@@ -38,11 +34,18 @@ if( $VER_CHK ){
 	&display_help();
 
 } elsif( $SERVER ){
-	
+
 	&server( $PORT );
 
-} elsif( !$SERVER and ($MASTER_NODE =~ m/([0-9]{1,3}\.?){4}/ or $MASTER_NODE =~ m/localhost/ ) ){
-	
+} elsif( !$SERVER ){
+
+	if( $MASTER_NODE !~ m/([0-9]{1,3}\.?){4}/ and $MASTER_NODE !~ m/localhost/ ){
+		if( $DEBUG ){
+			print "Invalid master node address.\n";
+		}
+		exit 1;
+	}
+
 	&client( $PORT,$MASTER_NODE );
 
 }
@@ -67,12 +70,17 @@ sub server {
 	Reuse => 1
 	) or die "ERROR in Socket Creation : $!\n";
 
-	if($DEBUG){ print "Awaiting client connections on pert $PORT\n"; }
+	if($DEBUG){ print "Awaiting client connections on port $PORT\n"; }
 
 	my ($peer_address, $peer_port, $client_data, @data_array );
-	while(1){
-		$client_socket = $socket->accept();
+	my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst);
 
+	while(1){
+
+		# wait to accept a new client connection	
+		$client_socket = $socket->accept();
+	
+		# extract the peer address and port
 		$peer_address = $client_socket->peerhost();
 		$peer_port = $client_socket->peerport();
 
@@ -88,8 +96,19 @@ sub server {
 				print "\t\t$_\n";
 			}
 		}
+
+		($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime();
+		$year += 1900;
+		my $filename = "temps\_$year-$mon-$mday.log";
+		open( FILE, '>>', $filename );
+		
+		print FILE "($year-$mon-$mday, $hour:$min:$sec),$peer_address,$data_array[1]\n";
+
+		close( FILE );
+
 	}
 	
+	$socket->close();
 	exit 0;
 
 } #end of server sub
@@ -100,6 +119,12 @@ sub client {
 	my $hostname = `hostname`; chomp($hostname);
 	my @info = `sensors`;
 	my @data;
+
+	if( !@info ){
+		if( $DEBUG ){ print "No sensors output, exiting.\n"; }
+		exit 1;
+	}
+
 	# Iterate through the output of sensors looking
 	# for the ISA adapter and core temps
 	for( my $i=0; $i<@info; $i++ ){
@@ -133,7 +158,7 @@ sub client {
 	}
 
 	if( !@data ){
-		if( $DEBUG ){ print "No sensors output, exiting program"; }
+		if( $DEBUG ){ print "No temperature output in sensors, exiting.\n"; }
 		exit 1;
 	}
 
@@ -184,7 +209,7 @@ sub client {
 	Proto => 'tcp',
 	) or die "ERROR in Socket Creation : $!\n";
 
-	if($DEBUG){ print "Awaiting client connections on pert $PORT\n"; }
+	if($DEBUG){ print "Awaiting client connections on port $PORT\n"; }
 
 	my ($peer_address, $peer_port, $client_data, @data_array );
 	
