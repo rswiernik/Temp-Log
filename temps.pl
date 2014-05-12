@@ -63,7 +63,7 @@ sub server {
 
 	# Create the socket object
 	$socket = new IO::Socket::INET (
-	LocalHost => '127.0.0.1',
+	LocalHost => '129.21.50.75',
 	LocalPort => $PORT,
 	Proto => 'tcp',
 	Listen => 5,
@@ -102,7 +102,7 @@ sub server {
 		my $filename = "temps\_$year-$mon-$mday.log";
 		open( FILE, '>>', $filename );
 		
-		print FILE "($year-$mon-$mday, $hour:$min:$sec),$peer_address,$data_array[1]\n";
+		print FILE "\"$year-$mon-$mday $hour:$min:$sec\",$peer_address,$data_array[1]\n";
 
 		close( FILE );
 
@@ -120,7 +120,7 @@ sub client {
 	my @info = `sensors`;
 	my @data;
 
-	if( !@info ){
+	if( $info[0] =~ m/No sensors found!/ ){
 		if( $DEBUG ){ print "No sensors output, exiting.\n"; }
 		exit 1;
 	}
@@ -184,7 +184,6 @@ sub client {
 			# Set the matched portion that is the temp equal to the temps array
 			
 			if($DEBUG){print "Temp: $1\n";}
-			if($DEBUG){print "$MASTER_NODE,$hostname,$1\n\n";}
 		} else {
 			if($DEBUG){print "No core temp found\n";}
 		}
@@ -204,12 +203,12 @@ sub client {
 
 	# Create the socket object
 	$socket = new IO::Socket::INET (
-	PeerHost => '127.0.0.1',
+	PeerAddr => $MASTERNODE,
 	PeerPort => $PORT,
 	Proto => 'tcp',
 	) or die "ERROR in Socket Creation : $!\n";
 
-	if($DEBUG){ print "Awaiting client connections on port $PORT\n"; }
+	if($DEBUG){ print "Connecting to $MASTERNODE on port $PORT\n"; }
 
 	my ($peer_address, $peer_port, $client_data, @data_array );
 	
