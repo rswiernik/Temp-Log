@@ -114,10 +114,18 @@ sub server {
 } #end of server sub
 
 sub client {
+	
+	my $return = `which sensors`;
+	if( $? !~ m/0/ ){
+		if($DEBUG){print "Sensors was not found, exiting...\n"};
+		exit 1;
+	}
+
+
 	my ($PORT, $MASTERNODE) = @_;
 
 	my $hostname = `hostname`; chomp($hostname);
-	my @info = `sensors`;
+	my @info = `$return`;
 	my @data;
 
 	if( $info[0] =~ m/No sensors found!/ ){
