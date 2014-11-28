@@ -26,34 +26,23 @@ GetOptions ('debug' => \$DEBUG,
 			'help' => \$HELP);
 
 if( $VER_CHK ){
-
 	&check_version( $VERSION );
-
 } elsif( $HELP ){
-
 	&display_help();
-
 } elsif( $SERVER ){
-
 	&server( $PORT );
-
 } elsif( !$SERVER ){
-
 	if( $MASTER_NODE !~ m/([0-9]{1,3}\.?){4}/ and $MASTER_NODE !~ m/localhost/ ){
 		if( $DEBUG ){
 			print "Invalid master node address.\n";
 		}
 		exit 1;
 	}
-
 	&client( $PORT,$MASTER_NODE );
-
 }
 
 if($DEBUG){ print "No option selected... Master Node: <$MASTER_NODE>\n\n"; &display_help(); }
-
 exit 1;
-
 
 # Sub for the server
 sub server {
