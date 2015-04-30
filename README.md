@@ -1,7 +1,7 @@
 Temp-Log
 ===
 
-** This project is a work in progress, network features and scrapping are still being worked on!
+**This branch is deticated to the python rewrite of this software. As development continues, the perl version will be moved to a depricated branch. At this time, it is safe to assume that the software in this branch does not function and should not be used.**
 
 Temperature monitoring in perl using lm-sensors. This perl script scraps the output of the 'sensors' portion of lm-sensors. In the designed use-case, the server portion of Temps is run on the master node and each client whoes temperature is being monitored is then reported to the master. 
 
